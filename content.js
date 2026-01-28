@@ -10,6 +10,8 @@
   let isOverlayVisible = false;
   let selectedIndex = 0;
   let currentTabs = [];
+  let savedBodyOverflow = null;
+  let savedHtmlOverflow = null;
 
   // CSS Styles for the overlay (glassmorphism dark mode)
   const styles = `
@@ -266,6 +268,7 @@
 
     isOverlayVisible = true;
     document.addEventListener("keydown", handleKeydown);
+    lockBodyScroll();
 
     // Scroll selected card into view
     scrollSelectedIntoView();
@@ -350,6 +353,22 @@
     return [tabCountSpan, ramSpan, clearAllBtn];
   }
 
+  // Lock body scroll
+  function lockBodyScroll() {
+    savedBodyOverflow = document.body.style.overflow;
+    savedHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  // Unlock body scroll
+  function unlockBodyScroll() {
+    document.body.style.overflow = savedBodyOverflow ?? "";
+    document.documentElement.style.overflow = savedHtmlOverflow ?? "";
+    savedBodyOverflow = null;
+    savedHtmlOverflow = null;
+  }
+
   // Hide the overlay
   function hideOverlay() {
     if (!shadowRoot) return;
@@ -364,6 +383,7 @@
 
     isOverlayVisible = false;
     document.removeEventListener("keydown", handleKeydown);
+    unlockBodyScroll();
   }
 
   // Handle keyboard navigation
