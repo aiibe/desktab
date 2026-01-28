@@ -14,29 +14,37 @@ function mapTab(tab) {
   };
 }
 
+// Shared toggle logic used by both keyboard shortcut and icon click
+async function toggleOverlay() {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+  if (!activeTab?.id) return;
+  const tabs = await chrome.tabs.query({});
+  chrome.tabs.sendMessage(activeTab.id, {
+    type: "TOGGLE_OVERLAY",
+    tabs: tabs.map(mapTab),
+  });
+}
+
 // Listen for keyboard shortcut command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-overlay") {
     try {
-      // Get the active tab to send the message to
-      const [activeTab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-
-      if (!activeTab?.id) return;
-
-      // Query all tabs across all windows
-      const tabs = await chrome.tabs.query({});
-
-      // Send tabs data to content script
-      chrome.tabs.sendMessage(activeTab.id, {
-        type: "TOGGLE_OVERLAY",
-        tabs: tabs.map(mapTab),
-      });
+      await toggleOverlay();
     } catch (error) {
       console.error("DeskTab: Error toggling overlay", error);
     }
+  }
+});
+
+// Listen for extension icon click
+chrome.action.onClicked.addListener(async () => {
+  try {
+    await toggleOverlay();
+  } catch (error) {
+    console.error("DeskTab: Error toggling overlay", error);
   }
 });
 
