@@ -34,11 +34,13 @@
       z-index: 2147483647;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       opacity: 0;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      transform: scale(1.1);
     }
 
     .overlay.visible {
       opacity: 1;
+      transform: scale(1);
     }
 
     .container {
@@ -48,12 +50,13 @@
       max-height: 80vh;
       width: 90%;
       margin-top: 80px;
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 16px;
       overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
     .header {
@@ -69,15 +72,15 @@
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       color: rgba(255, 255, 255, 0.9);
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 600;
     }
 
     .logo img {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
     }
 
     .stats {
@@ -136,7 +139,7 @@
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: none;
+      border: 1px solid transparent;
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -148,7 +151,9 @@
     }
 
     .card.selected {
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
     }
 
     .card.active-tab {
@@ -163,13 +168,13 @@
       height: 22px;
       border: none;
       border-radius: 50%;
-      background: rgba(255, 100, 100, 0.8);
-      color: white;
-      font-size: 12px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 18px;
       font-weight: bold;
       cursor: pointer;
       opacity: 0;
-      transition: opacity 0.2s ease, transform 0.1s ease;
+      transition: opacity 0.2s ease, transform 0.1s ease, color 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -182,16 +187,41 @@
     }
 
     .close-btn:hover {
-      background: rgba(255, 70, 70, 1);
-      transform: scale(1.1);
+      color: rgba(255, 100, 100, 1);
+      transform: scale(1.2);
+    }
+
+    .favicon-wrapper {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      margin-bottom: 10px;
     }
 
     .favicon {
       width: 40px;
       height: 40px;
       object-fit: contain;
-      margin-bottom: 10px;
       border-radius: 4px;
+      filter: grayscale(100%);
+    }
+
+    .favicon-color {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      border-radius: 4px;
+      clip-path: circle(0% at center bottom);
+      transition: clip-path 0s;
+    }
+
+    .card:hover .favicon-color,
+    .card.selected .favicon-color {
+      clip-path: circle(150% at center bottom);
+      transition: clip-path 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .favicon-placeholder {
@@ -223,7 +253,7 @@
       padding: 8px 16px;
       border: none;
       border-radius: 6px;
-      background: rgba(180, 80, 80, 0.8);
+      background: rgba(255, 100, 100, 0.8);
       color: white;
       font-size: 13px;
       cursor: pointer;
@@ -231,7 +261,7 @@
     }
 
     .clear-all-btn:hover {
-      background: rgba(200, 70, 70, 0.9);
+      background: rgba(255, 70, 70, 1);
     }
 
     .empty-state {
@@ -315,7 +345,7 @@
     });
 
     isOverlayVisible = true;
-    document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("keydown", handleKeydown, true);
     lockBodyScroll();
 
     // Scroll selected card into view
@@ -349,12 +379,26 @@
     // Favicon
     let faviconEl;
     if (tab.favIconUrl) {
-      faviconEl = document.createElement("img");
-      faviconEl.className = "favicon";
-      faviconEl.src = tab.favIconUrl;
-      faviconEl.onerror = () => {
-        faviconEl.replaceWith(createFaviconPlaceholder(tab.title));
+      // Create wrapper with grayscale and color layers for ripple effect
+      const wrapper = document.createElement("div");
+      wrapper.className = "favicon-wrapper";
+
+      const faviconGray = document.createElement("img");
+      faviconGray.className = "favicon";
+      faviconGray.src = tab.favIconUrl;
+
+      const faviconColor = document.createElement("img");
+      faviconColor.className = "favicon-color";
+      faviconColor.src = tab.favIconUrl;
+
+      wrapper.appendChild(faviconGray);
+      wrapper.appendChild(faviconColor);
+
+      faviconGray.onerror = () => {
+        wrapper.replaceWith(createFaviconPlaceholder(tab.title));
       };
+
+      faviconEl = wrapper;
     } else {
       faviconEl = createFaviconPlaceholder(tab.title);
     }
@@ -469,13 +513,19 @@
     }
 
     isOverlayVisible = false;
-    document.removeEventListener("keydown", handleKeydown);
+    document.removeEventListener("keydown", handleKeydown, true);
     unlockBodyScroll();
   }
 
   // Handle keyboard navigation
   function handleKeydown(e) {
-    if (!isOverlayVisible || currentTabs.length === 0) return;
+    if (!isOverlayVisible) return;
+
+    // Prevent all keyboard events from reaching the page
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (currentTabs.length === 0) return;
 
     const gridColumns = getGridColumns();
 
@@ -502,7 +552,7 @@
         e.preventDefault();
         selectedIndex = Math.min(
           selectedIndex + gridColumns,
-          currentTabs.length - 1
+          currentTabs.length - 1,
         );
         updateSelection();
         break;
