@@ -27,13 +27,10 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: transparent;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       z-index: 2147483647;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
       opacity: 0;
@@ -44,15 +41,76 @@
       opacity: 1;
     }
 
+    .container {
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      max-height: 80vh;
+      width: 90%;
+      margin-top: 80px;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .logo img {
+      width: 24px;
+      height: 24px;
+    }
+
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-value {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .stat-label {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 16px;
-      max-width: 900px;
-      max-height: 70vh;
-      overflow-y: auto;
       padding: 24px;
-      width: 90%;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .grid::-webkit-scrollbar {
@@ -78,7 +136,7 @@
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: none;
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -90,9 +148,7 @@
     }
 
     .card.selected {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(100, 150, 255, 0.6);
-      box-shadow: 0 0 20px rgba(100, 150, 255, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .card.active-tab {
@@ -162,20 +218,6 @@
       white-space: nowrap;
     }
 
-    footer {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      padding: 16px 24px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 8px;
-      margin-top: 16px;
-    }
-
-    footer span {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 13px;
-    }
 
     .clear-all-btn {
       padding: 8px 16px;
@@ -236,6 +278,16 @@
     if (tabs.length === 0) {
       overlay.innerHTML = `<div class="empty-state">No tabs found</div>`;
     } else {
+      const container = document.createElement("div");
+      container.className = "container";
+
+      // Sticky header with stats
+      const header = document.createElement("div");
+      header.className = "header";
+      header.append(...createHeaderContent(tabs.length));
+      container.appendChild(header);
+
+      // Scrollable grid
       const grid = document.createElement("div");
       grid.className = "grid";
 
@@ -244,12 +296,8 @@
         grid.appendChild(card);
       });
 
-      overlay.appendChild(grid);
-
-      // Footer with stats
-      const footer = document.createElement("footer");
-      footer.append(...createFooterContent(tabs.length));
-      overlay.appendChild(footer);
+      container.appendChild(grid);
+      overlay.appendChild(container);
     }
 
     // Click on backdrop to close
@@ -337,20 +385,59 @@
     return placeholder;
   }
 
-  // Create footer content elements
-  function createFooterContent(tabCount) {
+  // Create header content elements
+  function createHeaderContent(tabCount) {
+    // Logo
+    const logo = document.createElement("div");
+    logo.className = "logo";
+    const logoImg = document.createElement("img");
+    logoImg.src = chrome.runtime.getURL("icons/icon-48.png");
+    const logoText = document.createElement("span");
+    logoText.textContent = "Tabs Janitor";
+    logo.appendChild(logoImg);
+    logo.appendChild(logoText);
+
+    // Stats
+    const stats = document.createElement("div");
+    stats.className = "stats";
     const estimatedRAM = tabCount * ESTIMATED_RAM_PER_TAB_MB;
-    const tabCountSpan = document.createElement("span");
-    tabCountSpan.textContent = `Total Open Tabs: ${tabCount}`;
-    const ramSpan = document.createElement("span");
-    ramSpan.textContent = `Estimated RAM: ~${estimatedRAM} MB`;
+
+    // Tab count stat
+    const tabStat = document.createElement("div");
+    tabStat.className = "stat";
+    const tabValue = document.createElement("span");
+    tabValue.className = "stat-value";
+    tabValue.textContent = tabCount;
+    const tabLabel = document.createElement("span");
+    tabLabel.className = "stat-label";
+    tabLabel.textContent = "Open Tabs";
+    tabStat.appendChild(tabValue);
+    tabStat.appendChild(tabLabel);
+
+    // RAM stat
+    const ramStat = document.createElement("div");
+    ramStat.className = "stat";
+    const ramValue = document.createElement("span");
+    ramValue.className = "stat-value";
+    ramValue.textContent = `~${estimatedRAM}`;
+    const ramLabel = document.createElement("span");
+    ramLabel.className = "stat-label";
+    ramLabel.textContent = "MB RAM";
+    ramStat.appendChild(ramValue);
+    ramStat.appendChild(ramLabel);
+
     const clearAllBtn = document.createElement("button");
     clearAllBtn.className = "clear-all-btn";
-    clearAllBtn.textContent = "Close All Tabs";
+    clearAllBtn.textContent = "Close All";
     clearAllBtn.addEventListener("click", () => {
       chrome.runtime.sendMessage({ type: "CLOSE_ALL_TABS" });
     });
-    return [tabCountSpan, ramSpan, clearAllBtn];
+
+    stats.appendChild(tabStat);
+    stats.appendChild(ramStat);
+    stats.appendChild(clearAllBtn);
+
+    return [logo, stats];
   }
 
   // Lock body scroll
@@ -502,19 +589,20 @@
     // Re-render the grid
     const shadow = initShadowDOM();
     const grid = shadow.querySelector(".grid");
-    const footer = shadow.querySelector("footer");
+    const header = shadow.querySelector(".header");
 
     if (grid && tabs.length > 0) {
       grid.innerHTML = "";
+
       tabs.forEach((tab, index) => {
         const card = createTabCard(tab, index);
         grid.appendChild(card);
       });
 
-      // Update footer
-      if (footer) {
-        footer.textContent = "";
-        footer.append(...createFooterContent(tabs.length));
+      // Update header stats
+      if (header) {
+        header.innerHTML = "";
+        header.append(...createHeaderContent(tabs.length));
       }
     } else if (tabs.length === 0) {
       hideOverlay();
