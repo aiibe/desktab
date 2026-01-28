@@ -162,6 +162,7 @@
 
     footer {
       display: flex;
+      align-items: center;
       gap: 24px;
       padding: 16px 24px;
       background: rgba(0, 0, 0, 0.5);
@@ -172,6 +173,21 @@
     footer span {
       color: rgba(255, 255, 255, 0.7);
       font-size: 13px;
+    }
+
+    .clear-all-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(180, 80, 80, 0.8);
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .clear-all-btn:hover {
+      background: rgba(200, 70, 70, 0.9);
     }
 
     .empty-state {
@@ -230,12 +246,7 @@
 
       // Footer with stats
       const footer = document.createElement("footer");
-      const estimatedRAM = tabs.length * ESTIMATED_RAM_PER_TAB_MB;
-      const tabCountSpan = document.createElement("span");
-      tabCountSpan.textContent = `Total Open Tabs: ${tabs.length}`;
-      const ramSpan = document.createElement("span");
-      ramSpan.textContent = `Estimated RAM: ~${estimatedRAM} MB`;
-      footer.append(tabCountSpan, ramSpan);
+      footer.append(...createFooterContent(tabs.length));
       overlay.appendChild(footer);
     }
 
@@ -321,6 +332,22 @@
     placeholder.className = "favicon-placeholder";
     placeholder.textContent = title ? title.charAt(0).toUpperCase() : "?";
     return placeholder;
+  }
+
+  // Create footer content elements
+  function createFooterContent(tabCount) {
+    const estimatedRAM = tabCount * ESTIMATED_RAM_PER_TAB_MB;
+    const tabCountSpan = document.createElement("span");
+    tabCountSpan.textContent = `Total Open Tabs: ${tabCount}`;
+    const ramSpan = document.createElement("span");
+    ramSpan.textContent = `Estimated RAM: ~${estimatedRAM} MB`;
+    const clearAllBtn = document.createElement("button");
+    clearAllBtn.className = "clear-all-btn";
+    clearAllBtn.textContent = "Close All Tabs";
+    clearAllBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "CLOSE_ALL_TABS" });
+    });
+    return [tabCountSpan, ramSpan, clearAllBtn];
   }
 
   // Hide the overlay
@@ -466,13 +493,8 @@
 
       // Update footer
       if (footer) {
-        const estimatedRAM = tabs.length * ESTIMATED_RAM_PER_TAB_MB;
         footer.textContent = "";
-        const tabCountSpan = document.createElement("span");
-        tabCountSpan.textContent = `Total Open Tabs: ${tabs.length}`;
-        const ramSpan = document.createElement("span");
-        ramSpan.textContent = `Estimated RAM: ~${estimatedRAM} MB`;
-        footer.append(tabCountSpan, ramSpan);
+        footer.append(...createFooterContent(tabs.length));
       }
     } else if (tabs.length === 0) {
       hideOverlay();

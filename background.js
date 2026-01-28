@@ -54,6 +54,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "GET_TABS":
       handleGetTabs(sendResponse);
       return true; // Keep channel open for async response
+
+    case "CLOSE_ALL_TABS":
+      handleCloseAllTabs(sender.tab?.id);
+      break;
   }
 });
 
@@ -96,5 +100,29 @@ async function handleGetTabs(sendResponse) {
   } catch (error) {
     console.error("Tabs Janitor: Error getting tabs", error);
     sendResponse({ tabs: [] });
+  }
+}
+
+async function handleCloseAllTabs(senderTabId) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const tabIdsToClose = tabs
+      .filter((tab) => tab.id !== senderTabId)
+      .map((tab) => tab.id);
+
+    if (tabIdsToClose.length > 0) {
+      await chrome.tabs.remove(tabIdsToClose);
+    }
+
+    // Send updated tab list back
+    if (senderTabId) {
+      const remainingTabs = await chrome.tabs.query({});
+      chrome.tabs.sendMessage(senderTabId, {
+        type: "TABS_UPDATED",
+        tabs: remainingTabs.map(mapTab),
+      });
+    }
+  } catch (error) {
+    console.error("Tabs Janitor: Error closing all tabs", error);
   }
 }
