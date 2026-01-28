@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Tabs Janitor",
+  "name": "DeskTab",
   "version": "1.0.0",
-  "description": "Clean up your overwhelming tabs",
+  "description": "Tidy up your tabs",
   "permissions": ["tabs"],
   "background": {
     "service_worker": "background.js"
@@ -20,7 +20,7 @@
         "default": "Ctrl+Period",
         "mac": "Command+Period"
       },
-      "description": "Toggle Tabs Janitor overlay"
+      "description": "Toggle DeskTab overlay"
     }
   },
   "icons": {

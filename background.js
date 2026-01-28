@@ -1,6 +1,6 @@
 "use strict";
 
-// Tabs Janitor - Background Service Worker
+// DeskTab - Background Service Worker
 
 // Helper to map tab data
 function mapTab(tab) {
@@ -35,7 +35,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         tabs: tabs.map(mapTab),
       });
     } catch (error) {
-      console.error("Tabs Janitor: Error toggling overlay", error);
+      console.error("DeskTab: Error toggling overlay", error);
     }
   }
 });
@@ -74,7 +74,7 @@ async function handleCloseTab(tabIdToClose, senderTabId) {
       });
     }
   } catch (error) {
-    console.error("Tabs Janitor: Error closing tab", error);
+    console.error("DeskTab: Error closing tab", error);
   }
 }
 
@@ -87,7 +87,7 @@ async function handleSwitchTab(tabId, windowId) {
     // Then activate the tab
     await chrome.tabs.update(tabId, { active: true });
   } catch (error) {
-    console.error("Tabs Janitor: Error switching tab", error);
+    console.error("DeskTab: Error switching tab", error);
   }
 }
 
@@ -98,7 +98,7 @@ async function handleGetTabs(sendResponse) {
       tabs: tabs.map(mapTab),
     });
   } catch (error) {
-    console.error("Tabs Janitor: Error getting tabs", error);
+    console.error("DeskTab: Error getting tabs", error);
     sendResponse({ tabs: [] });
   }
 }
@@ -123,6 +123,6 @@ async function handleCloseAllTabs(senderTabId) {
       });
     }
   } catch (error) {
-    console.error("Tabs Janitor: Error closing all tabs", error);
+    console.error("DeskTab: Error closing all tabs", error);
   }
 }

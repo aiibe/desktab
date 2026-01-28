@@ -1,9 +1,9 @@
 "use strict";
 
-// Tabs Janitor - Content Script
+// DeskTab - Content Script
 
 (function () {
-  const ROOT_ID = "tabs-janitor-root";
+  const ROOT_ID = "desktab-root";
   const ESTIMATED_RAM_PER_TAB_MB = 50;
 
   let shadowRoot = null;
@@ -393,7 +393,7 @@
     const logoImg = document.createElement("img");
     logoImg.src = chrome.runtime.getURL("icons/icon-48.png");
     const logoText = document.createElement("span");
-    logoText.textContent = "Tabs Janitor";
+    logoText.textContent = "DeskTab";
     logo.appendChild(logoImg);
     logo.appendChild(logoText);
 
