@@ -307,6 +307,14 @@
     .card.animating {
       transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
     }
+    .card.deleting {
+      transform: scale(0.8);
+      opacity: 0;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 1, 1), opacity 0.3s ease;
+    }
+    .card.shift-animate {
+      transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
   `;
 
   /**
@@ -745,7 +753,17 @@
     clearAllBtn.className = "clear-all-btn";
     clearAllBtn.textContent = "Close All";
     clearAllBtn.addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "CLOSE_ALL_TABS" });
+      if (!shadowRoot) {
+        chrome.runtime.sendMessage({ type: "CLOSE_ALL_TABS" });
+        return;
+      }
+      const cards = shadowRoot.querySelectorAll(".card");
+      cards.forEach((c) => {
+        /** @type {HTMLElement} */ (c).classList.add("deleting");
+      });
+      setTimeout(() => {
+        chrome.runtime.sendMessage({ type: "CLOSE_ALL_TABS" });
+      }, 300);
     });
 
     stats.appendChild(tabStat);
@@ -913,13 +931,57 @@
     }
   }
 
+  /** @type {Map<number, DOMRect>} Map of tabId to its rect before deletion */
+  let preDeleteRects = new Map();
+
   /**
-   * Send a message to the background script to close a tab.
+   * Animate a tab card out (scale down) then send close message.
+   * Captures sibling positions for FLIP animation on updateTabs.
    * @param {number} tabId
    * @returns {void}
    */
   function closeTab(tabId) {
-    chrome.runtime.sendMessage({ type: "CLOSE_TAB", tabId });
+    if (!shadowRoot) {
+      chrome.runtime.sendMessage({ type: "CLOSE_TAB", tabId });
+      return;
+    }
+
+    const cards = /** @type {NodeListOf<HTMLElement>} */ (
+      shadowRoot.querySelectorAll(".card")
+    );
+
+    // Capture positions of all sibling cards for FLIP animation
+    preDeleteRects = new Map();
+    /** @type {HTMLElement | null} */
+    let targetCard = null;
+
+    cards.forEach((c) => {
+      const cTabId = parseInt(c.dataset.tabId || "0", 10);
+      if (cTabId === tabId) {
+        targetCard = c;
+      } else {
+        preDeleteRects.set(cTabId, c.getBoundingClientRect());
+      }
+    });
+
+    if (!targetCard) {
+      chrome.runtime.sendMessage({ type: "CLOSE_TAB", tabId });
+      return;
+    }
+
+    // Animate the card out
+    const cardToDelete = /** @type {HTMLElement} */ (targetCard);
+    cardToDelete.classList.add("deleting");
+
+    let sent = false;
+    const sendClose = () => {
+      if (sent) return;
+      sent = true;
+      chrome.runtime.sendMessage({ type: "CLOSE_TAB", tabId });
+    };
+    cardToDelete.addEventListener("transitionend", sendClose, { once: true });
+    // Safety timeout in case transitionend doesn't fire
+    setTimeout(sendClose, 350);
   }
 
   /**
@@ -934,6 +996,7 @@
 
   /**
    * Update the overlay grid after a tab has been closed.
+   * Uses FLIP animation to smoothly shift remaining cards into position.
    * @param {TabInfo[]} tabs
    * @returns {void}
    */
@@ -947,12 +1010,15 @@
       selectedIndex = Math.max(0, currentTabs.length - 1);
     }
 
-    // Re-render the grid
-    const shadow = initShadowDOM();
-    const grid = shadow.querySelector(".grid");
-    const header = shadow.querySelector(".header");
+    if (!shadowRoot) return;
+
+    const grid = shadowRoot.querySelector(".grid");
+    const header = shadowRoot.querySelector(".header");
 
     if (grid && tabs.length > 0) {
+      const hasPreDeleteRects = preDeleteRects.size > 0;
+
+      // Re-render the grid
       grid.innerHTML = "";
 
       tabs.forEach((tab, index) => {
@@ -964,6 +1030,45 @@
       if (header) {
         header.innerHTML = "";
         header.append(...createHeaderContent(tabs.length));
+      }
+
+      // FLIP: animate siblings from old positions to new positions
+      if (hasPreDeleteRects) {
+        const newCards = /** @type {NodeListOf<HTMLElement>} */ (
+          grid.querySelectorAll(".card")
+        );
+
+        newCards.forEach((card) => {
+          const tabId = parseInt(card.dataset.tabId || "0", 10);
+          const oldRect = preDeleteRects.get(tabId);
+          if (!oldRect) return;
+
+          const newRect = card.getBoundingClientRect();
+          const deltaX = oldRect.left - newRect.left;
+          const deltaY = oldRect.top - newRect.top;
+
+          if (deltaX === 0 && deltaY === 0) return;
+
+          // FLIP: snap to old position (no transition), then animate to new
+          card.style.transition = "none";
+          card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+          requestAnimationFrame(() => {
+            card.style.transition = "";
+            card.classList.add("shift-animate");
+            card.style.transform = "";
+
+            card.addEventListener(
+              "transitionend",
+              () => {
+                card.classList.remove("shift-animate");
+              },
+              { once: true },
+            );
+          });
+        });
+
+        preDeleteRects = new Map();
       }
     } else if (tabs.length === 0) {
       hideOverlay();
