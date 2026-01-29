@@ -1,16 +1,34 @@
+// @ts-check
+/// <reference path="chrome.d.ts" />
 "use strict";
 
 // DeskTab - Content Script
+
+/**
+ * @typedef {object} TabInfo
+ * @property {number} id
+ * @property {string} title
+ * @property {string} url
+ * @property {string} favIconUrl
+ * @property {boolean} active
+ * @property {number} windowId
+ */
 
 (function () {
   const ROOT_ID = "desktab-root";
   const ESTIMATED_RAM_PER_TAB_MB = 50;
 
+  /** @type {ShadowRoot | null} */
   let shadowRoot = null;
+  /** @type {boolean} */
   let isOverlayVisible = false;
+  /** @type {number} */
   let selectedIndex = 0;
+  /** @type {TabInfo[]} */
   let currentTabs = [];
+  /** @type {string | null} */
   let savedBodyOverflow = null;
+  /** @type {string | null} */
   let savedHtmlOverflow = null;
 
   // CSS Styles for the overlay (glassmorphism dark mode)
@@ -272,7 +290,11 @@
     }
   `;
 
-  // Initialize Shadow DOM container
+  /**
+   * Initialize the Shadow DOM container. Creates the host element and shadow
+   * root on first call; subsequent calls return the existing shadow root.
+   * @returns {ShadowRoot}
+   */
   function initShadowDOM() {
     let root = document.getElementById(ROOT_ID);
     if (!root) {
@@ -285,10 +307,14 @@
       styleEl.textContent = styles;
       shadowRoot.appendChild(styleEl);
     }
-    return shadowRoot;
+    return /** @type {ShadowRoot} */ (shadowRoot);
   }
 
-  // Render the overlay with tabs
+  /**
+   * Render the overlay showing all open tabs in a grid.
+   * @param {TabInfo[]} tabs
+   * @returns {void}
+   */
   function renderOverlay(tabs) {
     currentTabs = tabs;
     selectedIndex = tabs.findIndex((t) => t.active);
@@ -352,13 +378,18 @@
     scrollSelectedIntoView();
   }
 
-  // Create a tab card element
+  /**
+   * Create a tab card element for the grid.
+   * @param {TabInfo} tab
+   * @param {number} index
+   * @returns {HTMLDivElement}
+   */
   function createTabCard(tab, index) {
     const card = document.createElement("div");
     card.className = "card";
-    card.dataset.tabId = tab.id;
-    card.dataset.windowId = tab.windowId;
-    card.dataset.index = index;
+    card.dataset.tabId = String(tab.id);
+    card.dataset.windowId = String(tab.windowId);
+    card.dataset.index = String(index);
 
     if (tab.active) {
       card.classList.add("active-tab");
@@ -377,6 +408,7 @@
     });
 
     // Favicon
+    /** @type {HTMLDivElement} */
     let faviconEl;
     if (tab.favIconUrl) {
       // Create wrapper with grayscale and color layers for ripple effect
@@ -421,7 +453,11 @@
     return card;
   }
 
-  // Create placeholder for missing favicon
+  /**
+   * Create a placeholder element for a tab that has no favicon.
+   * @param {string} title
+   * @returns {HTMLDivElement}
+   */
   function createFaviconPlaceholder(title) {
     const placeholder = document.createElement("div");
     placeholder.className = "favicon-placeholder";
@@ -429,7 +465,11 @@
     return placeholder;
   }
 
-  // Create header content elements
+  /**
+   * Create the header content elements (logo, stats, close-all button).
+   * @param {number} tabCount
+   * @returns {[HTMLDivElement, HTMLDivElement]}
+   */
   function createHeaderContent(tabCount) {
     // Logo
     const logo = document.createElement("div");
@@ -451,7 +491,7 @@
     tabStat.className = "stat";
     const tabValue = document.createElement("span");
     tabValue.className = "stat-value";
-    tabValue.textContent = tabCount;
+    tabValue.textContent = String(tabCount);
     const tabLabel = document.createElement("span");
     tabLabel.className = "stat-label";
     tabLabel.textContent = "Open Tabs";
@@ -484,7 +524,11 @@
     return [logo, stats];
   }
 
-  // Lock body scroll
+  /**
+   * Lock body and html scroll to prevent background scrolling while overlay
+   * is open.
+   * @returns {void}
+   */
   function lockBodyScroll() {
     savedBodyOverflow = document.body.style.overflow;
     savedHtmlOverflow = document.documentElement.style.overflow;
@@ -492,7 +536,10 @@
     document.documentElement.style.overflow = "hidden";
   }
 
-  // Unlock body scroll
+  /**
+   * Restore body and html scroll to their original values.
+   * @returns {void}
+   */
   function unlockBodyScroll() {
     document.body.style.overflow = savedBodyOverflow ?? "";
     document.documentElement.style.overflow = savedHtmlOverflow ?? "";
@@ -500,7 +547,10 @@
     savedHtmlOverflow = null;
   }
 
-  // Hide the overlay
+  /**
+   * Hide the overlay with a fade-out animation and clean up listeners.
+   * @returns {void}
+   */
   function hideOverlay() {
     if (!shadowRoot) return;
 
@@ -517,7 +567,12 @@
     unlockBodyScroll();
   }
 
-  // Handle keyboard navigation
+  /**
+   * Handle keyboard navigation within the overlay (arrows, Enter, Delete,
+   * Escape).
+   * @param {KeyboardEvent} e
+   * @returns {void}
+   */
   function handleKeydown(e) {
     if (!isOverlayVisible) return;
 
@@ -582,17 +637,23 @@
     }
   }
 
-  // Calculate grid columns based on viewport
+  /**
+   * Calculate the number of grid columns based on the current viewport width.
+   * @returns {number}
+   */
   function getGridColumns() {
     const grid = shadowRoot?.querySelector(".grid");
     if (!grid) return 4;
 
-    const gridWidth = grid.clientWidth - 48; // Subtract padding
+    const gridWidth = /** @type {HTMLElement} */ (grid).clientWidth - 48; // Subtract padding
     const cardMinWidth = 140 + 16; // minmax value + gap
     return Math.max(1, Math.floor(gridWidth / cardMinWidth));
   }
 
-  // Update visual selection
+  /**
+   * Update the visual selection state across all tab cards.
+   * @returns {void}
+   */
   function updateSelection() {
     if (!shadowRoot) return;
 
@@ -604,7 +665,10 @@
     scrollSelectedIntoView();
   }
 
-  // Scroll selected card into view
+  /**
+   * Scroll the currently selected card into the visible area of the grid.
+   * @returns {void}
+   */
   function scrollSelectedIntoView() {
     if (!shadowRoot) return;
 
@@ -614,18 +678,32 @@
     }
   }
 
-  // Close a tab
+  /**
+   * Send a message to the background script to close a tab.
+   * @param {number} tabId
+   * @returns {void}
+   */
   function closeTab(tabId) {
     chrome.runtime.sendMessage({ type: "CLOSE_TAB", tabId });
   }
 
-  // Switch to a tab
+  /**
+   * Send a message to the background script to switch to a tab, then hide
+   * the overlay.
+   * @param {number} tabId
+   * @param {number} windowId
+   * @returns {void}
+   */
   function switchToTab(tabId, windowId) {
     chrome.runtime.sendMessage({ type: "SWITCH_TAB", tabId, windowId });
     hideOverlay();
   }
 
-  // Update tabs after one is closed
+  /**
+   * Update the overlay grid after a tab has been closed.
+   * @param {TabInfo[]} tabs
+   * @returns {void}
+   */
   function updateTabs(tabs) {
     if (!isOverlayVisible) return;
 

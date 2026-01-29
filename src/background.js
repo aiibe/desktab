@@ -1,11 +1,27 @@
+// @ts-check
+/// <reference path="chrome.d.ts" />
 "use strict";
 
 // DeskTab - Background Service Worker
 
-// Helper to map tab data
+/**
+ * @typedef {object} MappedTab
+ * @property {number} id
+ * @property {string} title
+ * @property {string} url
+ * @property {string} favIconUrl
+ * @property {boolean} active
+ * @property {number} windowId
+ */
+
+/**
+ * Map a Chrome tab to a simplified tab object.
+ * @param {chrome.tabs.Tab} tab
+ * @returns {MappedTab}
+ */
 function mapTab(tab) {
   return {
-    id: tab.id,
+    id: /** @type {number} */ (tab.id),
     title: tab.title || "Untitled",
     url: tab.url || "",
     favIconUrl: tab.favIconUrl || "",
@@ -14,10 +30,14 @@ function mapTab(tab) {
   };
 }
 
-// Track tabs where content script has been injected
-const injectedTabs = new Set();
+/** Track tabs where the content script has been injected. */
+const injectedTabs = /** @type {Set<number>} */ (new Set());
 
-// Ensure content script is injected, then send toggle message
+/**
+ * Ensure the content script is injected into the active tab, then send a
+ * toggle message with the full list of open tabs.
+ * @returns {Promise<void>}
+ */
 async function toggleOverlay() {
   const [activeTab] = await chrome.tabs.query({
     active: true,
@@ -87,6 +107,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+/**
+ * Close a tab and send the updated tab list back to the sender.
+ * @param {number} tabIdToClose
+ * @param {number | undefined} senderTabId
+ * @returns {Promise<void>}
+ */
 async function handleCloseTab(tabIdToClose, senderTabId) {
   try {
     await chrome.tabs.remove(tabIdToClose);
@@ -104,6 +130,12 @@ async function handleCloseTab(tabIdToClose, senderTabId) {
   }
 }
 
+/**
+ * Focus the window and activate the specified tab.
+ * @param {number} tabId
+ * @param {number} [windowId]
+ * @returns {Promise<void>}
+ */
 async function handleSwitchTab(tabId, windowId) {
   try {
     // Focus the window first if specified
@@ -117,6 +149,11 @@ async function handleSwitchTab(tabId, windowId) {
   }
 }
 
+/**
+ * Query all tabs and send them via the response callback.
+ * @param {(response: { tabs: MappedTab[] }) => void} sendResponse
+ * @returns {Promise<void>}
+ */
 async function handleGetTabs(sendResponse) {
   try {
     const tabs = await chrome.tabs.query({});
@@ -129,12 +166,17 @@ async function handleGetTabs(sendResponse) {
   }
 }
 
+/**
+ * Close all tabs except the sender's tab, then send the updated list back.
+ * @param {number | undefined} senderTabId
+ * @returns {Promise<void>}
+ */
 async function handleCloseAllTabs(senderTabId) {
   try {
     const tabs = await chrome.tabs.query({});
     const tabIdsToClose = tabs
       .filter((tab) => tab.id !== senderTabId)
-      .map((tab) => tab.id);
+      .map((tab) => /** @type {number} */ (tab.id));
 
     if (tabIdsToClose.length > 0) {
       await chrome.tabs.remove(tabIdsToClose);
