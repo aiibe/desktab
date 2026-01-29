@@ -316,6 +316,13 @@
    */
   function initShadowDOM() {
     let root = document.getElementById(ROOT_ID);
+
+    // Remove stale root from previous extension instance
+    if (root && !shadowRoot) {
+      root.remove();
+      root = null;
+    }
+
     if (!root) {
       root = document.createElement("div");
       root.id = ROOT_ID;
@@ -776,6 +783,12 @@
     isOverlayVisible = false;
     document.removeEventListener("keydown", handleKeydown, true);
     unlockBodyScroll();
+
+    // Reset drag state
+    draggedCard = null;
+    draggedFromIndex = null;
+    currentDropIndex = null;
+    cardRects = [];
   }
 
   /**
