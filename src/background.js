@@ -121,10 +121,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleSwitchTab(message.tabId, message.windowId);
       break;
 
-    case "GET_TABS":
-      handleGetTabs(sendResponse);
-      return true; // Keep channel open for async response
-
     case "CLOSE_ALL_TABS":
       handleCloseAllTabs(sender.tab?.id);
       break;
@@ -179,23 +175,6 @@ async function handleSwitchTab(tabId, windowId) {
     await chrome.tabs.update(tabId, { active: true });
   } catch (error) {
     console.error("DeskTab: Error switching tab", error);
-  }
-}
-
-/**
- * Query all tabs and send them via the response callback.
- * @param {(response: { tabs: MappedTab[] }) => void} sendResponse
- * @returns {Promise<void>}
- */
-async function handleGetTabs(sendResponse) {
-  try {
-    const tabs = await chrome.tabs.query({});
-    sendResponse({
-      tabs: tabs.map(mapTab),
-    });
-  } catch (error) {
-    console.error("DeskTab: Error getting tabs", error);
-    sendResponse({ tabs: [] });
   }
 }
 
