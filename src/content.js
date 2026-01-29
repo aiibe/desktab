@@ -498,15 +498,20 @@
       cardRects = Array.from(cards).map((c) => c.getBoundingClientRect());
     }
 
-    // Add dragging class after a frame for better visual
-    requestAnimationFrame(() => {
-      card.classList.add("dragging");
-    });
-
+    // Use the card itself as drag image
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", card.dataset.tabId || "");
+      e.dataTransfer.setDragImage(
+        card,
+        card.offsetWidth / 2,
+        card.offsetHeight / 2,
+      );
     }
+
+    requestAnimationFrame(() => {
+      card.classList.add("dragging");
+    });
   }
 
   /**
@@ -603,13 +608,15 @@
     }
 
     // Find which card position the cursor is over using original rects
-    const x = e.clientX;
-    const y = e.clientY;
     let targetIndex = draggedFromIndex;
-
     for (let i = 0; i < cardRects.length; i++) {
       const rect = cardRects[i];
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
         targetIndex = i;
         break;
       }

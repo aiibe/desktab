@@ -68,6 +68,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   injectedTabs.delete(tabId);
 });
 
+// Clean up tracking when tabs navigate (page reload or URL change)
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // When a tab starts loading a new page, the content script is gone
+  if (changeInfo.status === "loading") {
+    injectedTabs.delete(tabId);
+  }
+});
+
 // Listen for keyboard shortcut command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-overlay") {

@@ -35,6 +35,22 @@ declare namespace chrome {
     const onRemoved: {
       addListener(callback: (tabId: number) => void): void;
     };
+
+    interface TabChangeInfo {
+      status?: "loading" | "complete";
+      url?: string;
+      pinned?: boolean;
+      audible?: boolean;
+      discarded?: boolean;
+      autoDiscardable?: boolean;
+      mutedInfo?: { muted: boolean };
+      favIconUrl?: string;
+      title?: string;
+    }
+
+    const onUpdated: {
+      addListener(callback: (tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void): void;
+    };
   }
 
   namespace windows {
