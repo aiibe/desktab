@@ -910,15 +910,13 @@
   }
 
   /**
-   * Send a message to the background script to switch to a tab, then hide
-   * the overlay.
+   * Send a message to the background script to switch to a tab.
    * @param {number} tabId
    * @param {number} windowId
    * @returns {void}
    */
   function switchToTab(tabId, windowId) {
     chrome.runtime.sendMessage({ type: "SWITCH_TAB", tabId, windowId });
-    hideOverlay();
   }
 
   /**
@@ -975,5 +973,12 @@
         break;
     }
     return false;
+  });
+
+  // Hide overlay when tab loses visibility (switching tabs)
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && isOverlayVisible) {
+      hideOverlay();
+    }
   });
 })();
