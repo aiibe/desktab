@@ -381,6 +381,13 @@
       // Grid-level drag handlers for catching drops in gaps
       grid.addEventListener("dragover", handleGridDragOver);
       grid.addEventListener("drop", handleGridDrop);
+      grid.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      grid.addEventListener("dragleave", (e) => {
+        e.stopPropagation();
+      });
 
       container.appendChild(grid);
       overlay.appendChild(container);
@@ -475,8 +482,9 @@
     card.appendChild(faviconEl);
     card.appendChild(title);
 
-    // Click to switch tab
+    // Click to switch tab (guard against drag releasing as click)
     card.addEventListener("click", () => {
+      if (draggedCard !== null) return;
       switchToTab(tab.id, tab.windowId);
     });
 
@@ -494,6 +502,7 @@
    * @returns {void}
    */
   function handleDragStart(e) {
+    e.stopPropagation();
     const card = /** @type {HTMLDivElement} */ (e.currentTarget);
     draggedCard = card;
     draggedFromIndex = parseInt(card.dataset.index || "0", 10);
@@ -527,6 +536,8 @@
    * @returns {void}
    */
   function handleDragEnd(e) {
+    e.preventDefault();
+    e.stopPropagation();
     const card = /** @type {HTMLDivElement} */ (e.currentTarget);
     card.classList.remove("dragging");
 
@@ -606,6 +617,7 @@
    */
   function handleGridDragOver(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = "move";
     }
@@ -642,6 +654,7 @@
    */
   function handleGridDrop(e) {
     e.preventDefault();
+    e.stopPropagation();
 
     if (
       !draggedCard ||
