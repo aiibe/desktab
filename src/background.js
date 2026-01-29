@@ -57,10 +57,24 @@ async function toggleOverlay() {
   }
 
   const tabs = await chrome.tabs.query({});
-  chrome.tabs.sendMessage(activeTab.id, {
-    type: "TOGGLE_OVERLAY",
-    tabs: tabs.map(mapTab),
-  });
+  try {
+    await chrome.tabs.sendMessage(activeTab.id, {
+      type: "TOGGLE_OVERLAY",
+      tabs: tabs.map(mapTab),
+    });
+  } catch {
+    // Content script context was invalidated, re-inject and retry
+    injectedTabs.delete(activeTab.id);
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      files: ["content.js"],
+    });
+    injectedTabs.add(activeTab.id);
+    await chrome.tabs.sendMessage(activeTab.id, {
+      type: "TOGGLE_OVERLAY",
+      tabs: tabs.map(mapTab),
+    });
+  }
 }
 
 // Clean up tracking when tabs are closed

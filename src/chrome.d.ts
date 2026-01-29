@@ -30,7 +30,7 @@ declare namespace chrome {
     function remove(tabIds: number | number[]): Promise<void>;
     function update(tabId: number, updateProperties: UpdateProperties): Promise<Tab>;
     function move(tabIds: number | number[], moveProperties: MoveProperties): Promise<Tab | Tab[]>;
-    function sendMessage(tabId: number, message: any): void;
+    function sendMessage(tabId: number, message: any): Promise<any>;
 
     const onRemoved: {
       addListener(callback: (tabId: number) => void): void;
