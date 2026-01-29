@@ -12,6 +12,7 @@
  * @property {string} favIconUrl
  * @property {boolean} active
  * @property {number} windowId
+ * @property {number} index
  */
 
 (function () {
@@ -30,6 +31,14 @@
   let savedBodyOverflow = null;
   /** @type {string | null} */
   let savedHtmlOverflow = null;
+  /** @type {HTMLDivElement | null} */
+  let draggedCard = null;
+  /** @type {number | null} */
+  let draggedFromIndex = null;
+  /** @type {number | null} */
+  let currentDropIndex = null;
+  /** @type {DOMRect[]} */
+  let cardRects = [];
 
   // CSS Styles for the overlay (glassmorphism dark mode)
   const styles = `
@@ -266,7 +275,6 @@
       white-space: nowrap;
     }
 
-
     .clear-all-btn {
       padding: 8px 16px;
       border: none;
@@ -287,6 +295,17 @@
       font-size: 16px;
       text-align: center;
       padding: 40px;
+    }
+
+    /* Drag and Drop */
+    .card[draggable="true"] { cursor: grab; }
+    .card[draggable="true"]:active { cursor: grabbing; }
+    .card.dragging {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .card.animating {
+      transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
     }
   `;
 
@@ -351,6 +370,10 @@
         const card = createTabCard(tab, index);
         grid.appendChild(card);
       });
+
+      // Grid-level drag handlers for catching drops in gaps
+      grid.addEventListener("dragover", handleGridDragOver);
+      grid.addEventListener("drop", handleGridDrop);
 
       container.appendChild(grid);
       overlay.appendChild(container);
@@ -450,7 +473,188 @@
       switchToTab(tab.id, tab.windowId);
     });
 
+    // Drag and drop
+    card.draggable = true;
+    card.addEventListener("dragstart", handleDragStart);
+    card.addEventListener("dragend", handleDragEnd);
+
     return card;
+  }
+
+  /**
+   * Handle drag start event.
+   * @param {DragEvent} e
+   * @returns {void}
+   */
+  function handleDragStart(e) {
+    const card = /** @type {HTMLDivElement} */ (e.currentTarget);
+    draggedCard = card;
+    draggedFromIndex = parseInt(card.dataset.index || "0", 10);
+    currentDropIndex = draggedFromIndex;
+
+    // Capture original positions of all cards before any shifts
+    if (shadowRoot) {
+      const cards = shadowRoot.querySelectorAll(".card");
+      cardRects = Array.from(cards).map((c) => c.getBoundingClientRect());
+    }
+
+    // Add dragging class after a frame for better visual
+    requestAnimationFrame(() => {
+      card.classList.add("dragging");
+    });
+
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", card.dataset.tabId || "");
+    }
+  }
+
+  /**
+   * Handle drag end event - clean up all drag state and classes.
+   * @param {DragEvent} e
+   * @returns {void}
+   */
+  function handleDragEnd(e) {
+    const card = /** @type {HTMLDivElement} */ (e.currentTarget);
+    card.classList.remove("dragging");
+
+    if (shadowRoot) {
+      shadowRoot.querySelectorAll(".card").forEach((c) => {
+        const el = /** @type {HTMLElement} */ (c);
+        el.style.transform = "";
+        el.classList.remove("animating");
+      });
+    }
+
+    draggedCard = null;
+    draggedFromIndex = null;
+    currentDropIndex = null;
+    cardRects = [];
+  }
+
+  /**
+   * Update card positions to show where the dragged card will be inserted.
+   * Uses FLIP technique for smooth animation.
+   * @param {number} targetIndex
+   * @returns {void}
+   */
+  function updateCardShifts(targetIndex) {
+    if (!shadowRoot || draggedFromIndex === null || cardRects.length === 0) {
+      return;
+    }
+
+    const fromIdx = draggedFromIndex;
+    const cards = /** @type {NodeListOf<HTMLElement>} */ (
+      shadowRoot.querySelectorAll(".card")
+    );
+
+    // Calculate where each card should visually end up
+    // based on the reordering from fromIdx to targetIndex
+    cards.forEach((c, idx) => {
+      if (c === draggedCard) return;
+
+      // Determine this card's visual target position
+      let visualTarget = idx;
+
+      if (fromIdx < targetIndex) {
+        // Dragging right: cards between from+1 and target shift left by 1
+        if (idx > fromIdx && idx <= targetIndex) {
+          visualTarget = idx - 1;
+        }
+      } else if (fromIdx > targetIndex) {
+        // Dragging left: cards between target and from-1 shift right by 1
+        if (idx >= targetIndex && idx < fromIdx) {
+          visualTarget = idx + 1;
+        }
+      }
+
+      // Calculate transform from original position to target position
+      const originalRect = cardRects[idx];
+      const targetRect = cardRects[visualTarget];
+
+      if (!originalRect || !targetRect) return;
+
+      const deltaX = targetRect.left - originalRect.left;
+      const deltaY = targetRect.top - originalRect.top;
+
+      if (deltaX === 0 && deltaY === 0) {
+        c.style.transform = "";
+        return;
+      }
+
+      c.classList.add("animating");
+      c.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    });
+  }
+
+  /**
+   * Handle dragover on grid - track position and allow drop.
+   * @param {DragEvent} e
+   * @returns {void}
+   */
+  function handleGridDragOver(e) {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "move";
+    }
+
+    if (!draggedCard || draggedFromIndex === null || cardRects.length === 0) {
+      return;
+    }
+
+    // Find which card position the cursor is over using original rects
+    const x = e.clientX;
+    const y = e.clientY;
+    let targetIndex = draggedFromIndex;
+
+    for (let i = 0; i < cardRects.length; i++) {
+      const rect = cardRects[i];
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    if (targetIndex !== currentDropIndex) {
+      currentDropIndex = targetIndex;
+      updateCardShifts(targetIndex);
+    }
+  }
+
+  /**
+   * Handle drop on grid - move tab to tracked position.
+   * @param {DragEvent} e
+   * @returns {void}
+   */
+  function handleGridDrop(e) {
+    e.preventDefault();
+
+    if (
+      !draggedCard ||
+      draggedFromIndex === null ||
+      currentDropIndex === null
+    ) {
+      return;
+    }
+
+    // Skip if dropping on same position
+    if (currentDropIndex === draggedFromIndex) {
+      return;
+    }
+
+    const tabId = parseInt(draggedCard.dataset.tabId || "0", 10);
+    const windowId = parseInt(draggedCard.dataset.windowId || "0", 10);
+
+    // Get the actual Chrome tab index from the target position
+    const targetTab = currentTabs[currentDropIndex];
+    if (!targetTab) return;
+
+    chrome.runtime.sendMessage({
+      type: "MOVE_TAB",
+      tabId,
+      windowId,
+      newIndex: targetTab.index,
+    });
   }
 
   /**
@@ -576,6 +780,9 @@
   function handleKeydown(e) {
     if (!isOverlayVisible) return;
 
+    // Ignore keyboard events while dragging
+    if (draggedCard !== null) return;
+
     // Prevent all keyboard events from reaching the page
     e.preventDefault();
     e.stopPropagation();
@@ -586,25 +793,21 @@
 
     switch (e.key) {
       case "Escape":
-        e.preventDefault();
         hideOverlay();
         break;
 
       case "ArrowRight":
-        e.preventDefault();
         selectedIndex = (selectedIndex + 1) % currentTabs.length;
         updateSelection();
         break;
 
       case "ArrowLeft":
-        e.preventDefault();
         selectedIndex =
           (selectedIndex - 1 + currentTabs.length) % currentTabs.length;
         updateSelection();
         break;
 
       case "ArrowDown":
-        e.preventDefault();
         selectedIndex = Math.min(
           selectedIndex + gridColumns,
           currentTabs.length - 1,
@@ -613,27 +816,26 @@
         break;
 
       case "ArrowUp":
-        e.preventDefault();
         selectedIndex = Math.max(selectedIndex - gridColumns, 0);
         updateSelection();
         break;
 
-      case "Enter":
-        e.preventDefault();
+      case "Enter": {
         const selectedTab = currentTabs[selectedIndex];
         if (selectedTab) {
           switchToTab(selectedTab.id, selectedTab.windowId);
         }
         break;
+      }
 
       case "Delete":
-      case "Backspace":
-        e.preventDefault();
+      case "Backspace": {
         const tabToClose = currentTabs[selectedIndex];
         if (tabToClose) {
           closeTab(tabToClose.id);
         }
         break;
+      }
     }
   }
 

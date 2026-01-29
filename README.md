@@ -32,6 +32,7 @@ From there you can **switch**, **close**, or **close all** tabs without ever lea
 - **Favicon color reveal** — favicons animate from grayscale to full color on hover
 - **Active tab indicator** — green border highlights the tab you're currently on
 - **RAM estimate** — see an approximate memory footprint based on your tab count
+- **Drag to reorder** — rearrange tabs by dragging cards to a new position
 - **Close all** — one button to close every tab except the current one
 
 ## Install
@@ -50,6 +51,7 @@ From there you can **switch**, **close**, or **close all** tabs without ever lea
 | Navigate tabs | Arrow keys |
 | Switch to tab | Click the card or press `Enter` |
 | Close a tab | Hover and click `×` or press `Delete` / `Backspace` |
+| Reorder tabs | Drag and drop cards |
 | Close all tabs | Click the **Close All** button in the header |
 | Dismiss overlay | Press `Escape` or click the backdrop |
 

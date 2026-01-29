@@ -12,6 +12,7 @@
  * @property {string} favIconUrl
  * @property {boolean} active
  * @property {number} windowId
+ * @property {number} index
  */
 
 /**
@@ -27,6 +28,7 @@ function mapTab(tab) {
     favIconUrl: tab.favIconUrl || "",
     active: tab.active,
     windowId: tab.windowId,
+    index: tab.index,
   };
 }
 
@@ -104,6 +106,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "CLOSE_ALL_TABS":
       handleCloseAllTabs(sender.tab?.id);
       break;
+
+    case "MOVE_TAB":
+      handleMoveTab(
+        message.tabId,
+        message.windowId,
+        message.newIndex,
+        sender.tab?.id,
+      );
+      break;
   }
 });
 
@@ -163,6 +174,31 @@ async function handleGetTabs(sendResponse) {
   } catch (error) {
     console.error("DeskTab: Error getting tabs", error);
     sendResponse({ tabs: [] });
+  }
+}
+
+/**
+ * Move a tab to a new position and send the updated tab list back.
+ * @param {number} tabId
+ * @param {number} windowId
+ * @param {number} newIndex
+ * @param {number | undefined} senderTabId
+ * @returns {Promise<void>}
+ */
+async function handleMoveTab(tabId, windowId, newIndex, senderTabId) {
+  try {
+    await chrome.tabs.move(tabId, { windowId, index: newIndex });
+
+    // Send updated tabs list back
+    if (senderTabId) {
+      const tabs = await chrome.tabs.query({});
+      chrome.tabs.sendMessage(senderTabId, {
+        type: "TABS_UPDATED",
+        tabs: tabs.map(mapTab),
+      });
+    }
+  } catch (error) {
+    console.error("DeskTab: Error moving tab", error);
   }
 }
 

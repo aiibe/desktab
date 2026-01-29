@@ -9,6 +9,7 @@ declare namespace chrome {
       favIconUrl?: string;
       active: boolean;
       windowId: number;
+      index: number;
     }
 
     interface QueryInfo {
@@ -20,9 +21,15 @@ declare namespace chrome {
       active?: boolean;
     }
 
+    interface MoveProperties {
+      windowId?: number;
+      index: number;
+    }
+
     function query(queryInfo: QueryInfo): Promise<Tab[]>;
     function remove(tabIds: number | number[]): Promise<void>;
     function update(tabId: number, updateProperties: UpdateProperties): Promise<Tab>;
+    function move(tabIds: number | number[], moveProperties: MoveProperties): Promise<Tab | Tab[]>;
     function sendMessage(tabId: number, message: any): void;
 
     const onRemoved: {
