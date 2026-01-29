@@ -3,17 +3,10 @@
   "name": "DeskTab",
   "version": "1.0.0",
   "description": "Tidy up your tabs",
-  "permissions": ["tabs"],
+  "permissions": ["activeTab", "scripting", "tabs"],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
   "commands": {
     "toggle-overlay": {
       "suggested_key": {

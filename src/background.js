@@ -14,19 +14,37 @@ function mapTab(tab) {
   };
 }
 
-// Shared toggle logic used by both keyboard shortcut and icon click
+// Track tabs where content script has been injected
+const injectedTabs = new Set();
+
+// Ensure content script is injected, then send toggle message
 async function toggleOverlay() {
   const [activeTab] = await chrome.tabs.query({
     active: true,
     currentWindow: true,
   });
   if (!activeTab?.id) return;
+
+  // Inject content script if not already present
+  if (!injectedTabs.has(activeTab.id)) {
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      files: ["content.js"],
+    });
+    injectedTabs.add(activeTab.id);
+  }
+
   const tabs = await chrome.tabs.query({});
   chrome.tabs.sendMessage(activeTab.id, {
     type: "TOGGLE_OVERLAY",
     tabs: tabs.map(mapTab),
   });
 }
+
+// Clean up tracking when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  injectedTabs.delete(tabId);
+});
 
 // Listen for keyboard shortcut command
 chrome.commands.onCommand.addListener(async (command) => {
