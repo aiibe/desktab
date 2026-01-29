@@ -1,2 +1,4 @@
 docs
+dist
 .DS_Store
+*.zip

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icons/icon-128.png" width="100" alt="DeskTab" />
+  <img src="src/icons/icon-128.png" width="100" alt="DeskTab" />
 </p>
 
 <h1 align="center">DeskTab</h1>
