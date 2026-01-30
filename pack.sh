@@ -15,10 +15,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+TAG=$(git tag --points-at HEAD 2>/dev/null | head -1)
 
 if [[ -z "$TAG" && "$DEV" == false ]]; then
-  echo "Error: no git tag found. Tag a release first (e.g. git tag v1.0.0)" >&2
+  echo "Error: HEAD is not tagged. Tag this commit first (e.g. git tag v1.0.0)" >&2
   echo "       or use --dev to pack anyway." >&2
   exit 1
 fi
