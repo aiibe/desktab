@@ -200,7 +200,7 @@
     }
 
     .card.active-tab {
-      border-color: rgba(100, 255, 150, 0.5);
+      border-color: rgba(41, 204, 175, 1);
     }
 
     .close-btn {
@@ -828,7 +828,9 @@
     }
 
     isOverlayVisible = false;
-    overlayListeners.forEach(([t, h]) => window.removeEventListener(t, h, true));
+    overlayListeners.forEach(([t, h]) =>
+      window.removeEventListener(t, h, true),
+    );
     unlockBodyScroll();
 
     // Reset drag state
