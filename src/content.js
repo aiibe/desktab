@@ -40,6 +40,22 @@
   /** @type {DOMRect[]} */
   let cardRects = [];
 
+  /** @type {Array<[string, EventListener]>} Event types and handlers to suppress while overlay is open */
+  const overlayListeners = [
+    ["keydown", /** @type {EventListener} */ (handleKeydown)],
+    ["keyup", /** @type {EventListener} */ (handleKeydown)],
+    ["keypress", /** @type {EventListener} */ (handleKeydown)],
+    ["wheel", /** @type {EventListener} */ (suppressEvent)],
+    ["mousedown", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["mouseup", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["mousemove", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["pointerdown", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["pointerup", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["touchstart", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["touchmove", /** @type {EventListener} */ (stopPropagationOnly)],
+    ["touchend", /** @type {EventListener} */ (stopPropagationOnly)],
+  ];
+
   // CSS Styles for the overlay (glassmorphism dark mode)
   const styles = `
     * {
@@ -416,7 +432,7 @@
     });
 
     isOverlayVisible = true;
-    document.addEventListener("keydown", handleKeydown, true);
+    overlayListeners.forEach(([t, h]) => window.addEventListener(t, h, true));
     lockBodyScroll();
 
     // Scroll selected card into view
@@ -812,7 +828,7 @@
     }
 
     isOverlayVisible = false;
-    document.removeEventListener("keydown", handleKeydown, true);
+    overlayListeners.forEach(([t, h]) => window.removeEventListener(t, h, true));
     unlockBodyScroll();
 
     // Reset drag state
@@ -823,20 +839,46 @@
   }
 
   /**
-   * Handle keyboard navigation within the overlay (arrows, Enter, Delete,
-   * Escape).
+   * Suppress an event fully (preventDefault + stopPropagation).
+   * Used for wheel and keyboard events.
+   * @param {Event} e
+   * @returns {void}
+   */
+  function suppressEvent(e) {
+    if (!isOverlayVisible) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  /**
+   * Stop an event from propagating without cancelling default behavior.
+   * Used for mouse/pointer/touch so overlay clicks still work.
+   * @param {Event} e
+   * @returns {void}
+   */
+  function stopPropagationOnly(e) {
+    if (!isOverlayVisible) return;
+    e.stopPropagation();
+  }
+
+  /**
+   * Handle keyboard events while the overlay is visible. Suppresses all
+   * keyboard events (keydown/keyup/keypress) and runs navigation on keydown.
    * @param {KeyboardEvent} e
    * @returns {void}
    */
   function handleKeydown(e) {
     if (!isOverlayVisible) return;
 
-    // Ignore keyboard events while dragging
-    if (draggedCard !== null) return;
-
     // Prevent all keyboard events from reaching the page
     e.preventDefault();
     e.stopPropagation();
+
+    // Only handle navigation on keydown; keyup/keypress are just suppressed
+    if (e.type !== "keydown") return;
+
+    // Ignore keyboard events while dragging
+    if (draggedCard !== null) return;
 
     if (currentTabs.length === 0) return;
 
