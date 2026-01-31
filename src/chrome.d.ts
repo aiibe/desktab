@@ -30,7 +30,17 @@ declare namespace chrome {
     function remove(tabIds: number | number[]): Promise<void>;
     function update(tabId: number, updateProperties: UpdateProperties): Promise<Tab>;
     function move(tabIds: number | number[], moveProperties: MoveProperties): Promise<Tab | Tab[]>;
+    function get(tabId: number): Promise<Tab>;
     function sendMessage(tabId: number, message: any): Promise<any>;
+
+    interface ActiveInfo {
+      tabId: number;
+      windowId: number;
+    }
+
+    const onActivated: {
+      addListener(callback: (activeInfo: ActiveInfo) => void): void;
+    };
 
     const onRemoved: {
       addListener(callback: (tabId: number) => void): void;
@@ -39,13 +49,6 @@ declare namespace chrome {
     interface TabChangeInfo {
       status?: "loading" | "complete";
       url?: string;
-      pinned?: boolean;
-      audible?: boolean;
-      discarded?: boolean;
-      autoDiscardable?: boolean;
-      mutedInfo?: { muted: boolean };
-      favIconUrl?: string;
-      title?: string;
     }
 
     const onUpdated: {
@@ -97,6 +100,8 @@ declare namespace chrome {
   }
 
   namespace action {
+    function setPopup(details: { tabId?: number; popup: string }): Promise<void>;
+
     const onClicked: {
       addListener(callback: (tab: chrome.tabs.Tab) => void): void;
     };

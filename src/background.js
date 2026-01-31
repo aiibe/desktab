@@ -35,17 +35,61 @@ function mapTab(tab) {
 /** Track tabs where the content script has been injected. */
 const injectedTabs = /** @type {Set<number>} */ (new Set());
 
+/** Restricted URL prefixes where content scripts cannot be injected. */
+const RESTRICTED_PREFIXES = [
+  "chrome://",
+  "chrome-extension://",
+  "chrome-devtools://",
+  "edge://",
+  "about:",
+  "chrome-error://",
+];
+
+/** Chrome Web Store origin (also restricted). */
+const WEBSTORE_ORIGIN = "https://chromewebstore.google.com";
+
+/**
+ * Check whether a URL is restricted (content scripts cannot run there).
+ * @param {string | undefined} url
+ * @returns {boolean}
+ */
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  if (RESTRICTED_PREFIXES.some((p) => url.startsWith(p))) return true;
+  if (url.startsWith(WEBSTORE_ORIGIN)) return true;
+  return false;
+}
+
+/**
+ * Set or clear the popup for a given tab based on whether its URL is
+ * restricted.  On restricted pages the popup shows a helpful message;
+ * on normal pages the popup is cleared so `action.onClicked` fires.
+ * @param {number} tabId
+ * @param {string | undefined} url
+ * @returns {void}
+ */
+function updatePopupForTab(tabId, url) {
+  chrome.action.setPopup({
+    tabId,
+    popup: isRestrictedUrl(url) ? "popup.html" : "",
+  });
+}
+
 /**
  * Ensure the content script is injected into the active tab, then send a
  * toggle message with the full list of open tabs.
+ * @param {chrome.tabs.Tab} [activeTab] - Optional pre-fetched active tab
  * @returns {Promise<void>}
  */
-async function toggleOverlay() {
-  const [activeTab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
+async function toggleOverlay(activeTab) {
+  if (!activeTab) {
+    [activeTab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+  }
   if (!activeTab?.id) return;
+  if (isRestrictedUrl(activeTab.url)) return;
 
   // Inject content script if not already present
   if (!injectedTabs.has(activeTab.id)) {
@@ -88,7 +132,37 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "loading") {
     injectedTabs.delete(tabId);
   }
+
+  // Update popup state when the tab's URL changes
+  if (changeInfo.url !== undefined) {
+    updatePopupForTab(tabId, changeInfo.url);
+  }
 });
+
+// Update popup state when the user switches to a different tab
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    updatePopupForTab(activeInfo.tabId, tab.url);
+  } catch {
+    // Tab may have been closed between event and handler
+  }
+});
+
+// Initialize popup state for the current active tab on service worker startup
+(async () => {
+  try {
+    const [activeTab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (activeTab?.id) {
+      updatePopupForTab(activeTab.id, activeTab.url);
+    }
+  } catch {
+    // Tabs may not be available yet during startup
+  }
+})();
 
 // Listen for keyboard shortcut command
 chrome.commands.onCommand.addListener(async (command) => {
@@ -111,7 +185,7 @@ chrome.action.onClicked.addListener(async () => {
 });
 
 // Listen for messages from content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender) => {
   switch (message.type) {
     case "CLOSE_TAB":
       handleCloseTab(message.tabId, sender.tab?.id);

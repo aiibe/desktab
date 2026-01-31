@@ -1136,7 +1136,6 @@
         updateTabs(message.tabs);
         break;
     }
-    return false;
   });
 
   // Hide overlay when tab loses visibility (switching tabs)

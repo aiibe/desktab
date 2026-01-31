@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/manifest-v3-blue" alt="Manifest V3" />
-  <img src="https://img.shields.io/badge/version-1.0.0-green" alt="Version 1.0.0" />
+  <img src="https://img.shields.io/badge/version-1.1.1-green" alt="Version 1.1.1" />
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License" />
 </p>
 
@@ -34,6 +34,7 @@ From there you can **switch**, **close**, or **close all** tabs without ever lea
 - **RAM estimate** — see an approximate memory footprint based on your tab count
 - **Drag to reorder** — rearrange tabs by dragging cards to a new position
 - **Close all** — one button to close every tab except the current one
+- **Works everywhere it can** — on restricted pages (chrome://, Web Store), a helpful popup explains the limitation
 
 ## Install
 

@@ -33,6 +33,7 @@ rm -f "$OUTFILE"
   manifest.json \
   background.js \
   content.js \
+  popup.html \
   icons/ \
   -x "*.DS_Store")
 
