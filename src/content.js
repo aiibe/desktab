@@ -70,7 +70,9 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: transparent;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       display: flex;
       flex-direction: column;
       align-items: center;
