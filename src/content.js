@@ -39,6 +39,10 @@
   let currentDropIndex = null;
   /** @type {DOMRect[]} */
   let cardRects = [];
+  /** @type {HTMLElement[]} */
+  let cardElements = [];
+  /** @type {number} */
+  let dragOverRAF = 0;
 
   /** @type {Array<[string, EventListener]>} Event types and handlers to suppress while overlay is open */
   const overlayListeners = [
@@ -323,15 +327,18 @@
       pointer-events: none;
     }
     .card.animating {
-      transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+      transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+      will-change: transform;
     }
     .card.deleting {
       transform: scale(0.8);
       opacity: 0;
       transition: transform 0.3s cubic-bezier(0.4, 0, 1, 1), opacity 0.3s ease;
+      will-change: transform, opacity;
     }
     .card.shift-animate {
-      transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+      transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+      will-change: transform;
     }
   `;
 
@@ -534,10 +541,13 @@
     draggedFromIndex = parseInt(card.dataset.index || "0", 10);
     currentDropIndex = draggedFromIndex;
 
-    // Capture original positions of all cards before any shifts
+    // Capture original positions and elements of all cards before any shifts
     if (shadowRoot) {
-      const cards = shadowRoot.querySelectorAll(".card");
-      cardRects = Array.from(cards).map((c) => c.getBoundingClientRect());
+      const cards = /** @type {NodeListOf<HTMLElement>} */ (
+        shadowRoot.querySelectorAll(".card")
+      );
+      cardElements = Array.from(cards);
+      cardRects = cardElements.map((c) => c.getBoundingClientRect());
     }
 
     // Use the card itself as drag image
@@ -567,18 +577,23 @@
     const card = /** @type {HTMLDivElement} */ (e.currentTarget);
     card.classList.remove("dragging");
 
-    if (shadowRoot) {
-      shadowRoot.querySelectorAll(".card").forEach((c) => {
-        const el = /** @type {HTMLElement} */ (c);
-        el.style.transform = "";
-        el.classList.remove("animating");
-      });
+    // Cancel any pending animation frame
+    if (dragOverRAF) {
+      cancelAnimationFrame(dragOverRAF);
+      dragOverRAF = 0;
     }
+
+    // Use cached elements instead of querying DOM
+    cardElements.forEach((el) => {
+      el.style.transform = "";
+      el.classList.remove("animating");
+    });
 
     draggedCard = null;
     draggedFromIndex = null;
     currentDropIndex = null;
     cardRects = [];
+    cardElements = [];
   }
 
   /**
@@ -588,19 +603,16 @@
    * @returns {void}
    */
   function updateCardShifts(targetIndex) {
-    if (!shadowRoot || draggedFromIndex === null || cardRects.length === 0) {
+    if (draggedFromIndex === null || cardRects.length === 0) {
       return;
     }
 
     const fromIdx = draggedFromIndex;
-    const cards = /** @type {NodeListOf<HTMLElement>} */ (
-      shadowRoot.querySelectorAll(".card")
-    );
 
-    // Calculate where each card should visually end up
-    // based on the reordering from fromIdx to targetIndex
-    cards.forEach((c, idx) => {
-      if (c === draggedCard) return;
+    // Use cached elements instead of querying DOM
+    for (let idx = 0; idx < cardElements.length; idx++) {
+      const c = cardElements[idx];
+      if (c === draggedCard) continue;
 
       // Determine this card's visual target position
       let visualTarget = idx;
@@ -621,23 +633,27 @@
       const originalRect = cardRects[idx];
       const targetRect = cardRects[visualTarget];
 
-      if (!originalRect || !targetRect) return;
+      if (!originalRect || !targetRect) continue;
 
       const deltaX = targetRect.left - originalRect.left;
       const deltaY = targetRect.top - originalRect.top;
 
       if (deltaX === 0 && deltaY === 0) {
         c.style.transform = "";
-        return;
+        continue;
       }
 
       c.classList.add("animating");
       c.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-    });
+    }
   }
+
+  /** @type {number} Pending target index for RAF */
+  let pendingTargetIndex = -1;
 
   /**
    * Handle dragover on grid - track position and allow drop.
+   * Uses requestAnimationFrame to throttle updates.
    * @param {DragEvent} e
    * @returns {void}
    */
@@ -654,22 +670,38 @@
 
     // Find which card position the cursor is over using original rects
     let targetIndex = draggedFromIndex;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
     for (let i = 0; i < cardRects.length; i++) {
       const rect = cardRects[i];
       if (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
       ) {
         targetIndex = i;
         break;
       }
     }
 
-    if (targetIndex !== currentDropIndex) {
-      currentDropIndex = targetIndex;
-      updateCardShifts(targetIndex);
+    // Skip if target hasn't changed
+    if (targetIndex === currentDropIndex) {
+      return;
+    }
+
+    pendingTargetIndex = targetIndex;
+
+    // Throttle updates using requestAnimationFrame
+    if (!dragOverRAF) {
+      dragOverRAF = requestAnimationFrame(() => {
+        dragOverRAF = 0;
+        if (pendingTargetIndex !== currentDropIndex && pendingTargetIndex !== -1) {
+          currentDropIndex = pendingTargetIndex;
+          updateCardShifts(pendingTargetIndex);
+        }
+      });
     }
   }
 
@@ -1084,6 +1116,10 @@
           grid.querySelectorAll(".card")
         );
 
+        // Batch read: collect all new rects first to avoid layout thrashing
+        /** @type {Array<{card: HTMLElement, deltaX: number, deltaY: number}>} */
+        const animations = [];
+
         newCards.forEach((card) => {
           const tabId = parseInt(card.dataset.tabId || "0", 10);
           const oldRect = preDeleteRects.get(tabId);
@@ -1093,13 +1129,23 @@
           const deltaX = oldRect.left - newRect.left;
           const deltaY = oldRect.top - newRect.top;
 
-          if (deltaX === 0 && deltaY === 0) return;
+          if (deltaX !== 0 || deltaY !== 0) {
+            animations.push({ card, deltaX, deltaY });
+          }
+        });
 
-          // FLIP: snap to old position (no transition), then animate to new
+        // Batch write: apply all transforms
+        animations.forEach(({ card, deltaX, deltaY }) => {
           card.style.transition = "none";
           card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        });
 
-          requestAnimationFrame(() => {
+        // Force reflow once, then animate all
+        if (animations.length > 0) {
+          // Single forced reflow
+          void /** @type {HTMLElement} */ (grid).offsetHeight;
+
+          animations.forEach(({ card }) => {
             card.style.transition = "";
             card.classList.add("shift-animate");
             card.style.transform = "";
@@ -1112,7 +1158,7 @@
               { once: true },
             );
           });
-        });
+        }
 
         preDeleteRects = new Map();
       }
